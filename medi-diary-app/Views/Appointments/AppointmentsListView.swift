@@ -2,13 +2,29 @@ import SwiftUI
 import SwiftData
 
 struct AppointmentsListView: View {
-    @Query(sort: \Appointment.date, order: .reverse) private var appointments: [Appointment]
+    @Query(sort: \Appointment.date) private var appointments: [Appointment]
     @Environment(\.modelContext) private var modelContext
     @Environment(SubscriptionManager.self) private var subscriptionManager
 
     @State private var showPaywall = false
     @State private var showAddForm = false
     @State private var selectedAppointment: Appointment?
+    @State private var displayedMonth = Date()
+    @State private var selectedDate: Date?
+    @State private var showAllAppointments = false
+
+    private var appointmentDateComponents: Set<DateComponents> {
+        let calendar = Calendar.current
+        return Set(appointments.map { calendar.dateComponents([.year, .month, .day], from: $0.date) })
+    }
+
+    private var upcomingAppointments: [Appointment] {
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        if let selected = selectedDate {
+            return appointments.filter { Calendar.current.isDate($0.date, inSameDayAs: selected) }
+        }
+        return appointments.filter { $0.date >= startOfToday }
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,69 +54,108 @@ struct AppointmentsListView: View {
                     }
                 } else {
                     ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(groupedByMonth, id: \.key) { month, items in
-                                // Month section header
-                                HStack {
-                                    Text(month)
-                                        .font(.poppins(.semiBold, size: 16))
+                        VStack(alignment: .leading, spacing: 16) {
+                            // MARK: - Header
+                            HStack {
+                                Text("Appointments")
+                                    .font(.poppins(.bold, size: 28))
+                                    .foregroundStyle(.primary)
+
+                                Spacer()
+
+                                Button {
+                                    if subscriptionManager.canAddItem(currentCount: appointments.count) {
+                                        showAddForm = true
+                                    } else {
+                                        showPaywall = true
+                                    }
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 18, weight: .semibold))
                                         .foregroundStyle(PastelTheme.dark)
-                                    Spacer()
+                                        .frame(width: 46, height: 46)
+                                        .background(PastelTheme.light.opacity(0.6))
+                                        .clipShape(Circle())
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.top, 20)
-                                .padding(.bottom, 8)
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.top, 8)
 
-                                // Table card
+                            // MARK: - Calendar
+                            MonthlyCalendarView(
+                                displayedMonth: $displayedMonth,
+                                selectedDate: $selectedDate,
+                                appointmentDates: appointmentDateComponents
+                            )
+
+                            // MARK: - Upcoming Section
+                            Text(selectedDate != nil ? "Appointments" : "Upcoming")
+                                .font(.poppins(.bold, size: 18))
+                                .foregroundStyle(PastelTheme.dark)
+                                .padding(.top, 4)
+
+                            if upcomingAppointments.isEmpty {
+                                Text(selectedDate != nil ? "No appointments on this day" : "No upcoming appointments")
+                                    .font(.poppins(.regular, size: 14))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 20)
+                            } else {
+                                // Grouped appointment rows
                                 VStack(spacing: 0) {
-                                    // Column headers
-                                    tableHeader
-
-                                    Divider()
-                                        .background(PastelTheme.light)
-
-                                    // Data rows
-                                    ForEach(Array(items.enumerated()), id: \.element.id) { index, appointment in
-                                        PressableTableRow {
-                                            tableRow(index: index + 1, appointment: appointment, isEven: index % 2 == 0)
-                                        } onTap: {
+                                    ForEach(Array(upcomingAppointments.enumerated()), id: \.element.id) { index, appointment in
+                                        Button {
                                             selectedAppointment = appointment
+                                        } label: {
+                                            appointmentRow(appointment: appointment)
                                         }
+                                        .buttonStyle(.plain)
+                                        .pressable()
 
-                                        if index < items.count - 1 {
+                                        if index < upcomingAppointments.count - 1 {
                                             Divider()
-                                                .background(PastelTheme.light.opacity(0.5))
-                                                .padding(.horizontal, 12)
+                                                .padding(.horizontal, 16)
                                         }
                                     }
                                 }
                                 .background(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                                .padding(.horizontal, 16)
+                            }
+
+                            // MARK: - View All Link
+                            if selectedDate != nil {
+                                Button {
+                                    withAnimation { selectedDate = nil }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(PastelTheme.dark)
+                                        Text("View All Appointments")
+                                            .font(.poppins(.medium, size: 14))
+                                            .foregroundStyle(PastelTheme.dark)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding()
+                                    .background(.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .padding(.bottom, 20)
+                        .padding()
+                        .padding(.bottom, 10)
                     }
                 }
             }
-            .navigationTitle("Appointments")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .scrollContentBackground(.hidden)
             .background(PastelTheme.gradient.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        if subscriptionManager.canAddItem(currentCount: appointments.count) {
-                            showAddForm = true
-                        } else {
-                            showPaywall = true
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
             .navigationDestination(isPresented: $showAddForm) {
                 AppointmentFormView()
             }
@@ -118,70 +173,77 @@ struct AppointmentsListView: View {
         }
     }
 
-    // MARK: - Table Header
+    // MARK: - Appointment Row
 
-    private var tableHeader: some View {
-        HStack(spacing: 8) {
-            Text("Date")
-                .frame(width: 50, alignment: .leading)
+    private func appointmentRow(appointment: Appointment) -> some View {
+        HStack(spacing: 12) {
+            // Icon circle with discipline-based color
+            Circle()
+                .fill(iconColor(for: appointment.discipline).opacity(0.15))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Image(systemName: disciplineIcon(for: appointment.discipline))
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(iconColor(for: appointment.discipline))
+                )
 
-            Text("Time")
-                .frame(width: 58, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(appointment.discipline)
+                    .font(.poppins(.semiBold, size: 15))
+                    .foregroundStyle(.primary)
 
-            Text("Category")
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text("\(appointment.date.formatted(.dateTime.day().month(.abbreviated).year())) · \(appointment.time.formatted(date: .omitted, time: .shortened))")
+                    .font(.poppins(.regular, size: 13))
+                    .foregroundStyle(.secondary)
+            }
 
-            Text("Notes")
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .font(.poppins(.semiBold, size: 15))
-        .foregroundStyle(PastelTheme.dark)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(PastelTheme.light.opacity(0.3))
-    }
+            Spacer()
 
-    // MARK: - Table Row
-
-    private func tableRow(index: Int, appointment: Appointment, isEven: Bool) -> some View {
-        HStack(spacing: 8) {
-            // Date
-            Text(appointment.date.formatted(.dateTime.day().month(.abbreviated)))
-                .font(.poppins(.regular, size: 15))
-                .foregroundStyle(.primary)
-                .frame(width: 50, alignment: .leading)
-
-            // Time
-            Text(appointment.time.formatted(date: .omitted, time: .shortened))
-                .font(.poppins(.regular, size: 15))
-                .foregroundStyle(.primary)
-                .frame(width: 58, alignment: .leading)
-
-            // Category badge
             Text(abbreviation(for: appointment.discipline))
-                .font(.poppins(.medium, size: 13))
-                .foregroundStyle(PastelTheme.dark)
-                .lineLimit(1)
+                .font(.poppins(.medium, size: 12))
+                .foregroundStyle(iconColor(for: appointment.discipline))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(PastelTheme.light)
+                .background(iconColor(for: appointment.discipline).opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
-                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Notes
-            Text(appointment.notes.isEmpty ? "—" : appointment.notes)
-                .font(.poppins(.regular, size: 15))
-                .foregroundStyle(appointment.notes.isEmpty ? .tertiary : .primary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(isEven ? Color.clear : PastelTheme.light.opacity(0.15))
-        .contentShape(Rectangle())
+        .padding(.vertical, 12)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Helpers
+
+    private func iconColor(for discipline: String) -> Color {
+        switch discipline.lowercased() {
+        case let d where d.contains("pulmo"): return PastelTheme.dark
+        case let d where d.contains("medical") || d.contains("med"): return PastelTheme.pinkAccent
+        case let d where d.contains("psych"): return PastelTheme.primary
+        case let d where d.contains("cardio"): return .red.opacity(0.8)
+        case let d where d.contains("dent"): return PastelTheme.green
+        case let d where d.contains("ortho"): return PastelTheme.orange
+        case let d where d.contains("neur"): return .purple.opacity(0.7)
+        default: return PastelTheme.dark
+        }
+    }
+
+    private func disciplineIcon(for discipline: String) -> String {
+        switch discipline.lowercased() {
+        case let d where d.contains("psych"): return "brain.head.profile"
+        case let d where d.contains("cardio") || d.contains("heart"): return "heart.fill"
+        case let d where d.contains("dent"): return "mouth.fill"
+        case let d where d.contains("eye") || d.contains("ophthal"): return "eye.fill"
+        case let d where d.contains("ortho") || d.contains("bone"): return "figure.walk"
+        case let d where d.contains("derma") || d.contains("skin"): return "hand.raised.fill"
+        case let d where d.contains("neur"): return "brain"
+        case let d where d.contains("pediatr") || d.contains("child"): return "figure.and.child.holdinghands"
+        default: return "stethoscope"
+        }
+    }
 
     private func abbreviation(for discipline: String) -> String {
         switch discipline {
@@ -200,39 +262,6 @@ struct AppointmentsListView: View {
         case "Endocrinology": return "END"
         default: return String(discipline.prefix(3)).uppercased()
         }
-    }
-
-    private var groupedByMonth: [(key: String, value: [Appointment])] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        let grouped = Dictionary(grouping: appointments) { formatter.string(from: $0.date) }
-        return grouped.sorted { $0.value.first?.date ?? .distantPast > $1.value.first?.date ?? .distantPast }
-    }
-}
-
-private struct PressableTableRow<Content: View>: View {
-    let content: Content
-    let onTap: () -> Void
-    @State private var isPressed = false
-
-    init(@ViewBuilder content: () -> Content, onTap: @escaping () -> Void) {
-        self.content = content()
-        self.onTap = onTap
-    }
-
-    var body: some View {
-        content
-            .overlay(isPressed ? PastelTheme.light.opacity(0.5) : Color.clear)
-            .opacity(isPressed ? 0.85 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: isPressed)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in
-                        isPressed = false
-                        onTap()
-                    }
-            )
     }
 }
 

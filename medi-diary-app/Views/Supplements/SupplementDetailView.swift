@@ -6,127 +6,228 @@ struct SupplementDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(NotificationManager.self) private var notificationManager
 
+    @Query(sort: \Medicine.name) private var allMedicines: [Medicine]
+    @Query(sort: \Supplement.name) private var allSupplements: [Supplement]
+    @Query(sort: \MoodEntry.date) private var moodEntries: [MoodEntry]
+
     let supplement: Supplement
 
     @State private var showingDeleteConfirmation = false
-
-    private var timeFormatter: DateFormatter {
-        let f = DateFormatter()
-        f.timeStyle = .short
-        return f
-    }
+    @State private var showingFullImage = false
+    @State private var showMoodCheckIn = false
+    @State private var takenBounce = false
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Details card
-                VStack(alignment: .leading, spacing: 14) {
-                    if !supplement.dosage.isEmpty {
-                        detailRow("Dosage", value: supplement.displayDosage, icon: "pills.fill")
+            VStack(alignment: .leading, spacing: 16) {
+                // MARK: - Header
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(PastelTheme.dark)
+                            .frame(width: 40, height: 40)
+                            .background(PastelTheme.light.opacity(0.6))
+                            .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
 
-                    if supplement.stock > 0 {
-                        detailRow("Stock", value: "\(supplement.stock) pills", icon: "cross.case.fill")
-                    }
+                    Spacer()
 
-                    detailRow("Frequency", value: supplement.frequency, icon: "clock.fill")
+                    Text(supplement.name)
+                        .font(.poppins(.bold, size: 20))
+                        .foregroundStyle(.primary)
 
-                    detailRow("Status", value: supplement.isActive ? "Active" : "Inactive", icon: supplement.isActive ? "checkmark.seal.fill" : "xmark.seal.fill")
+                    Spacer()
 
-                    if !supplement.reminderTimes.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("Reminders", systemImage: "bell.fill")
-                                .font(.poppins(.medium, size: 14))
-                                .foregroundStyle(.secondary)
-
-                            ForEach(supplement.reminderTimes, id: \.self) { time in
-                                Text(timeFormatter.string(from: time))
-                                    .font(.poppins(.regular, size: 15))
-                                    .padding(.leading, 28)
-                            }
-                        }
-                    }
-
-                    if !supplement.notes.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label("Notes", systemImage: "note.text")
-                                .font(.poppins(.medium, size: 14))
-                                .foregroundStyle(.secondary)
-
-                            Text(supplement.notes)
-                                .font(.poppins(.regular, size: 15))
-                                .padding(.leading, 28)
-                        }
-                    }
-
-                    if let imageData = supplement.imageData, let uiImage = UIImage(data: imageData) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("Image", systemImage: "photo.fill")
-                                .font(.poppins(.medium, size: 14))
-                                .foregroundStyle(.secondary)
-
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity, maxHeight: 200)
-                                .clipped()
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
+                    NavigationLink {
+                        SupplementFormView(supplement: supplement)
+                    } label: {
+                        Text("Edit")
+                            .font(.poppins(.medium, size: 15))
+                            .foregroundStyle(PastelTheme.dark)
                     }
                 }
-                .cardStyle()
+                .padding(.top, 8)
 
-                // Mark as taken button
+                // MARK: - Image
+                if let imageData = supplement.imageData, let uiImage = UIImage(data: imageData) {
+                    Button {
+                        showingFullImage = true
+                    } label: {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: 200)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // MARK: - Details Card
+                VStack(spacing: 0) {
+                    if supplement.stock > 0 {
+                        detailRow(
+                            icon: "shippingbox.fill",
+                            iconColor: PastelTheme.dark,
+                            iconBg: PastelTheme.primary.opacity(0.2),
+                            label: "Stock",
+                            value: supplement.stock <= 5
+                                ? "Time to refill\n\(supplement.stock) pill\(supplement.stock == 1 ? "" : "s") left"
+                                : "\(supplement.stock) pills",
+                            valueColor: supplement.stock <= 5 ? .orange : .primary
+                        )
+                        Divider().padding(.horizontal, 16)
+                    }
+
+                    if !supplement.dosage.isEmpty {
+                        detailRow(
+                            icon: "pills.fill",
+                            iconColor: PastelTheme.dark,
+                            iconBg: PastelTheme.primary.opacity(0.2),
+                            label: "Dosage",
+                            value: supplement.displayDosage,
+                            valueColor: .primary
+                        )
+                        Divider().padding(.horizontal, 16)
+                    }
+
+                    detailRow(
+                        icon: "calendar",
+                        iconColor: PastelTheme.dark,
+                        iconBg: PastelTheme.primary.opacity(0.2),
+                        label: "Frequency",
+                        value: supplement.frequency,
+                        valueColor: .primary
+                    )
+
+                    Divider().padding(.horizontal, 16)
+
+                    let isActive = supplement.isActive
+                    detailRow(
+                        icon: "checkmark.circle.fill",
+                        iconColor: isActive ? PastelTheme.green : PastelTheme.gray,
+                        iconBg: (isActive ? PastelTheme.green : PastelTheme.gray).opacity(0.2),
+                        label: "Status",
+                        value: isActive ? "Active" : "Paused",
+                        valueColor: isActive ? PastelTheme.green : .secondary
+                    )
+
+                    Divider().padding(.horizontal, 16)
+
+                    let streak = StreakManager.itemStreak(takenDates: supplement.takenDates)
+                    detailRow(
+                        icon: "flame.fill",
+                        iconColor: .orange,
+                        iconBg: Color.orange.opacity(0.15),
+                        label: "Streak",
+                        value: streak > 0 ? "\(streak) day\(streak == 1 ? "" : "s")" : "No streak",
+                        valueColor: streak > 0 ? .orange : .secondary
+                    )
+                }
+                .background(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+
+                // MARK: - Mark as Taken
                 Button {
-                    supplement.toggleTakenToday()
+                    let wasTaken = supplement.isTakenToday
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                        supplement.toggleTakenToday()
+                        takenBounce = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        takenBounce = false
+                    }
+                    if !wasTaken { checkMoodPrompt() }
+                    Task {
+                        await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: supplement.isTakenToday ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 20))
+                            .contentTransition(.symbolEffect(.replace))
                         Text(supplement.isTakenToday ? "Taken Today" : "Mark as Taken")
                             .font(.poppins(.semiBold, size: 16))
+                            .contentTransition(.numericText())
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(PastelTheme.dark)
+                    .background(supplement.isTakenToday ? PastelTheme.green : PastelTheme.dark)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .scaleEffect(takenBounce ? 1.03 : 1.0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.6), value: takenBounce)
                 }
                 .buttonStyle(.plain)
+                .animation(.easeInOut(duration: 0.25), value: supplement.isTakenToday)
 
-                // Delete button
-                Button(role: .destructive) {
+                // MARK: - Delete Button
+                Button {
                     showingDeleteConfirmation = true
                 } label: {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "trash")
+                            .font(.system(size: 14))
                         Text("Delete Supplement")
+                            .font(.poppins(.medium, size: 15))
                     }
-                    .font(.poppins(.medium, size: 15))
+                    .foregroundStyle(.red)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding()
+                    .background(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.red)
             }
             .padding()
+            .padding(.bottom, 10)
         }
+        .scrollContentBackground(.hidden)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .background(PastelTheme.gradient.ignoresSafeArea())
-        .navigationTitle(supplement.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    SupplementFormView(supplement: supplement)
-                } label: {
-                    Text("Edit")
+        .fullScreenCover(isPresented: $showingFullImage) {
+            if let imageData = supplement.imageData, let uiImage = UIImage(data: imageData) {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .ignoresSafeArea()
+                }
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        showingFullImage = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding()
+                    }
                 }
             }
+        }
+        .sheet(isPresented: $showMoodCheckIn) {
+            MoodCheckInView()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .alert("Delete Supplement", isPresented: $showingDeleteConfirmation) {
             Button("Delete", role: .destructive) {
-                notificationManager.cancelReminders(for: supplement)
                 modelContext.delete(supplement)
+                Task {
+                    let allMedicines = (try? modelContext.fetch(FetchDescriptor<Medicine>())) ?? []
+                    let allSupplements = (try? modelContext.fetch(FetchDescriptor<Supplement>())) ?? []
+                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                }
                 dismiss()
             }
             Button("Cancel", role: .cancel) {}
@@ -135,16 +236,48 @@ struct SupplementDetailView: View {
         }
     }
 
-    private func detailRow(_ label: String, value: String, icon: String) -> some View {
-        HStack(spacing: 8) {
-            Label(label, systemImage: icon)
+    // MARK: - Detail Row
+
+    private func detailRow(icon: String, iconColor: Color, iconBg: Color, label: String, value: String, valueColor: Color) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(iconBg)
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(iconColor)
+                )
+
+            Text(label)
                 .font(.poppins(.medium, size: 14))
                 .foregroundStyle(.secondary)
 
             Spacer()
 
             Text(value)
-                .font(.poppins(.regular, size: 15))
+                .font(.poppins(.semiBold, size: 15))
+                .foregroundStyle(valueColor)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Helpers
+
+    private func checkMoodPrompt() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let hasMoodToday = moodEntries.contains { calendar.startOfDay(for: $0.date) == today }
+        guard !hasMoodToday else { return }
+
+        let activeMeds = allMedicines.filter(\.isActive)
+        let activeSupps = allSupplements.filter(\.isActive)
+        guard !activeMeds.isEmpty || !activeSupps.isEmpty else { return }
+
+        if activeMeds.allSatisfy(\.isTakenToday) && activeSupps.allSatisfy(\.isTakenToday) {
+            showMoodCheckIn = true
         }
     }
 }

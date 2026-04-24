@@ -12,48 +12,64 @@ struct PaywallView: View {
             PastelTheme.gradient.ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // App icon
+                VStack(spacing: 0) {
+                    // MARK: - App Icon
                     Image("AppLogo")
                         .resizable()
-                        .frame(width: 72, height: 72)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .padding(30)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 26)
+                        .frame(width: 120, height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 28))
+                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+                        .padding(.top, 50)
 
-                    // Title
+                    // MARK: - Title & Subtitle
                     Text("Meds Diary Premium")
                         .font(.poppins(.bold, size: 28))
-                        .foregroundStyle(PastelTheme.dark)
-                        .padding(.top, 16)
+                        .foregroundStyle(.primary)
+                        .padding(.top, 20)
 
-                    // Features
-                    featuresSection
-                        .padding(.top, 24)
+                    Text("Upgrade to Premium and take full control\nof your health.")
+                        .font(.poppins(.regular, size: 15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
 
-                    // Plan options
+                    // MARK: - Features
+                    VStack(spacing: 0) {
+                        featureRow(icon: "calendar", title: "Unlimited appointments")
+                        Divider().padding(.horizontal, 16)
+                        featureRow(icon: "pill.fill", title: "Unlimited medicines")
+                        Divider().padding(.horizontal, 16)
+                        featureRow(icon: "leaf.fill", title: "Unlimited supplements")
+                        Divider().padding(.horizontal, 16)
+                        featureRow(icon: "icloud.fill", title: "iCloud sync across all devices")
+                    }
+                    .padding(.top, 24)
+                    .padding(.horizontal, 24)
+
+                    // MARK: - Plan Options
                     planOptionsSection
-                        .padding(.top, 28)
+                        .padding(.top, 24)
+                        .padding(.horizontal, 24)
 
-                    // Bottom actions
+                    // MARK: - Bottom Actions
                     bottomSection
-                        .padding(.top, 28)
+                        .padding(.top, 24)
+                        .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
                 .padding(.bottom, 24)
             }
 
-            // Close button
+            // MARK: - Close Button
             Button {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(PastelTheme.dark.opacity(0.6))
-                    .frame(width: 32, height: 32)
-                    .background(.white.opacity(0.8))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 36)
+                    .background(.white)
                     .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
             }
             .padding(.top, 12)
             .padding(.trailing, 20)
@@ -71,28 +87,24 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - Features
-
-    private var featuresSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            featureRow(icon: "calendar", title: "Unlimited appointments")
-            featureRow(icon: "pill.fill", title: "Unlimited medicines")
-            featureRow(icon: "leaf.fill", title: "Unlimited supplements")
-            featureRow(icon: "icloud.fill", title: "iCloud sync across all devices")
-        }
-    }
+    // MARK: - Feature Row
 
     private func featureRow(icon: String, title: String) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 16))
                 .foregroundStyle(PastelTheme.dark)
-                .frame(width: 24)
+                .frame(width: 36, height: 36)
+                .background(PastelTheme.primary.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
 
             Text(title)
                 .font(.poppins(.medium, size: 15))
-                .foregroundStyle(PastelTheme.dark)
+                .foregroundStyle(.primary)
+
+            Spacer()
         }
+        .padding(.vertical, 12)
     }
 
     // MARK: - Plan Options
@@ -146,14 +158,8 @@ struct PaywallView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [PastelTheme.primary, PastelTheme.dark],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .background(PastelTheme.dark)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .disabled(selectedProduct == nil || subscriptionManager.isLoading)
             .opacity(selectedProduct == nil ? 0.5 : 1.0)
@@ -164,8 +170,15 @@ struct PaywallView: View {
             } label: {
                 Text("Restore Purchase")
                     .font(.poppins(.medium, size: 14))
-                    .foregroundStyle(PastelTheme.dark.opacity(0.7))
+                    .foregroundStyle(PastelTheme.dark)
             }
+            .padding(.top, 4)
+
+            Text("Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage or cancel your subscription in your Apple ID settings.")
+                .font(.poppins(.regular, size: 11))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, 8)
         }
     }
 }
@@ -178,39 +191,62 @@ private struct PlanOptionCard: View {
     let showDiscount: Bool
     let onTap: () -> Void
 
+    private var durationLabel: String {
+        if product.id.contains("monthly") {
+            return "1 month"
+        } else if product.id.contains("yearly") {
+            return "1 year"
+        } else {
+            return "One-time purchase"
+        }
+    }
+
     var body: some View {
         Button(action: onTap) {
             HStack {
-                Text(product.displayName)
-                    .font(.poppins(.medium, size: 16))
-                    .foregroundStyle(isSelected ? PastelTheme.dark : .primary.opacity(0.7))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(product.displayName)
+                        .font(.poppins(.semiBold, size: 16))
+                        .foregroundStyle(.primary)
+
+                    Text(durationLabel)
+                        .font(.poppins(.regular, size: 13))
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
                 Text(product.displayPrice)
                     .font(.poppins(.bold, size: 18))
-                    .foregroundStyle(isSelected ? PastelTheme.dark : .primary.opacity(0.7))
+                    .foregroundStyle(isSelected ? PastelTheme.dark : .primary)
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(PastelTheme.dark)
+                }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 18)
             .padding(.horizontal, 20)
             .background(.white)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? PastelTheme.primary : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? PastelTheme.dark : Color.gray.opacity(0.15), lineWidth: isSelected ? 2 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if showDiscount {
-                    Text("30% off")
-                        .font(.poppins(.semiBold, size: 11))
+                    Text("30% OFF")
+                        .font(.poppins(.bold, size: 10))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(.red)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .offset(x: -16, y: -12)
+                        .offset(x: -12, y: -10)
                 }
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

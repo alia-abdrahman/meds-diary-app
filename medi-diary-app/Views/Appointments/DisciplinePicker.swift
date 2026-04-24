@@ -14,16 +14,6 @@ struct DisciplinePicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Department")
-                .font(.poppins(.semiBold, size: 15))
-                .foregroundStyle(.secondary)
-
-            if selection.isEmpty && !isExpanded {
-                Text("Please select a department")
-                    .font(.poppins(.medium, size: 13))
-                    .foregroundStyle(.secondary)
-            }
-
             VStack(spacing: 0) {
                 // Header / toggle button
                 Button {
@@ -34,7 +24,7 @@ struct DisciplinePicker: View {
                     HStack {
                         Text(displayLabel)
                             .font(.poppins(.regular, size: 15))
-                            .foregroundStyle(selection.isEmpty ? .secondary : PastelTheme.dark)
+                            .foregroundStyle(selection.isEmpty ? .secondary : .primary)
                         Spacer()
                         Image(systemName: "chevron.down")
                             .font(.system(size: 13, weight: .medium))
@@ -42,16 +32,14 @@ struct DisciplinePicker: View {
                             .rotationEffect(.degrees(isExpanded ? -180 : 0))
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 0 : 10))
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
                 // Dropdown list
                 if isExpanded {
                     Divider()
-                        .background(PastelTheme.light)
 
                     ScrollView {
                         VStack(spacing: 0) {
@@ -62,7 +50,6 @@ struct DisciplinePicker: View {
                         }
                     }
                     .frame(maxHeight: 220)
-                    .background(.white)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -72,8 +59,7 @@ struct DisciplinePicker: View {
                 TextField("Custom department", text: customTextBinding)
                     .font(.poppins(.regular, size: 15))
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(.white)
+                    .padding(.vertical, 14)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(PastelTheme.light, lineWidth: 1))
             }
@@ -114,7 +100,7 @@ struct DisciplinePicker: View {
             HStack {
                 Text(label)
                     .font(.poppins(.regular, size: 15))
-                    .foregroundStyle(PastelTheme.dark)
+                    .foregroundStyle(.primary)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
@@ -123,8 +109,9 @@ struct DisciplinePicker: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(isSelected ? PastelTheme.light.opacity(0.4) : .white)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            .background(isSelected ? PastelTheme.light.opacity(0.4) : .clear)
         }
         .buttonStyle(.plain)
     }

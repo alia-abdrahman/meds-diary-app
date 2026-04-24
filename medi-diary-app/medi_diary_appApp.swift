@@ -26,7 +26,7 @@ struct medi_diary_appApp: App {
     }
 
     let container: ModelContainer = {
-        let schema = Schema([Appointment.self, Medicine.self, Supplement.self])
+        let schema = Schema([Appointment.self, Medicine.self, Supplement.self, MoodEntry.self])
         let isPremium = SubscriptionManager.cachedIsPremium
         let config = ModelConfiguration(
             schema: schema,
@@ -54,8 +54,15 @@ struct medi_diary_appApp: App {
                     .environment(authManager)
                     .environment(subscriptionManager)
                     .task {
+                        await authManager.recoverEmailIfNeeded()
                         await notificationManager.requestAuthorization()
                         await subscriptionManager.checkEntitlements()
+
+                        // Rebuild all consolidated notifications on launch
+                        let context = container.mainContext
+                        let medicines = (try? context.fetch(FetchDescriptor<Medicine>())) ?? []
+                        let supplements = (try? context.fetch(FetchDescriptor<Supplement>())) ?? []
+                        await notificationManager.scheduleAllReminders(medicines: medicines, supplements: supplements)
                     }
             }
         }

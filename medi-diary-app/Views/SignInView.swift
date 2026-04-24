@@ -8,10 +8,12 @@ struct SignInView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image("OnboardingImage")
+            Image("AppLogo")
                 .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 180)
+                .scaledToFit()
+                .frame(width: 150, height: 150)
+                .clipShape(RoundedRectangle(cornerRadius: 32))
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
 
             VStack(spacing: 8) {
                 Text("Meds Diary")

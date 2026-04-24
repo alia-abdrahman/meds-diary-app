@@ -4,7 +4,7 @@ struct StatusPicker: View {
     @Binding var selection: String
     @State private var isExpanded = false
 
-    private let options = ["upcoming", "attended", "missed", "cancelled"]
+    private let options = ["upcoming", "attended", "not attended", "cancelled"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -30,7 +30,8 @@ struct StatusPicker: View {
                             .rotationEffect(.degrees(isExpanded ? -180 : 0))
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
                     .background(.white)
                     .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 0 : 10))
                 }
@@ -61,7 +62,8 @@ struct StatusPicker: View {
                                     }
                                 }
                                 .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
                                 .background(selection == option ? PastelTheme.light.opacity(0.4) : .white)
                             }
                             .buttonStyle(.plain)

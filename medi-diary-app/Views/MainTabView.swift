@@ -3,6 +3,28 @@ import SwiftData
 
 enum AppTab: Hashable {
     case home, appointments, medicines, supplements, settings
+
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .appointments: "Appointments"
+        case .medicines: "Medicines"
+        case .supplements: "Supplements"
+        case .settings: "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: "house.fill"
+        case .appointments: "calendar"
+        case .medicines: "pill.fill"
+        case .supplements: "leaf.fill"
+        case .settings: "gearshape"
+        }
+    }
+
+    static let allTabs: [AppTab] = [.home, .appointments, .medicines, .supplements, .settings]
 }
 
 struct MainTabView: View {
@@ -10,26 +32,53 @@ struct MainTabView: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            Tab("Home", systemImage: "house.fill", value: .home) {
-                DashboardView(selectedTab: $selectedTab)
+        VStack(spacing: 0) {
+            ZStack {
+                Group {
+                    switch selectedTab {
+                    case .home:
+                        DashboardView(selectedTab: $selectedTab)
+                    case .appointments:
+                        AppointmentsListView()
+                    case .medicines:
+                        MedicinesListView()
+                    case .supplements:
+                        SupplementsListView()
+                    case .settings:
+                        NavigationStack {
+                            SettingsView()
+                        }
+                    }
+                }
+                .transition(.opacity)
             }
-            Tab("Appointments", systemImage: "calendar", value: .appointments) {
-                AppointmentsListView()
-            }
-            Tab("Medicines", systemImage: "pill.fill", value: .medicines) {
-                MedicinesListView()
-            }
-            Tab("Supplements", systemImage: "leaf.fill", value: .supplements) {
-                SupplementsListView()
-            }
-            Tab("Settings", systemImage: "gearshape", value: .settings) {
-                NavigationStack {
-                    SettingsView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            HStack {
+                ForEach(AppTab.allTabs, id: \.self) { tab in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 20))
+                            Text(tab.title)
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(selectedTab == tab ? PastelTheme.dark : .secondary)
+                        .frame(maxWidth: .infinity)
+                    }
                 }
             }
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .background(.bar)
         }
-        .tint(PastelTheme.dark)
+        .ignoresSafeArea(.keyboard)
         .overlay(alignment: .top) {
             if subscriptionManager.cloudKitStatusChanged {
                 HStack {

@@ -55,8 +55,10 @@ final class Supplement {
         let startOfToday = Calendar.current.startOfDay(for: Date())
         if let index = takenDates.firstIndex(where: { Calendar.current.startOfDay(for: $0) == startOfToday }) {
             takenDates.remove(at: index)
+            if stock >= 0 { stock += 1 }
         } else {
             takenDates.append(startOfToday)
+            if stock > 0 { stock -= 1 }
         }
     }
 }
