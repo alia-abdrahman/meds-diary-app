@@ -15,7 +15,7 @@ struct medi_diary_appApp: App {
         // Unified appearance using primary light colour
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(red: 0.839, green: 0.910, blue: 0.973, alpha: 1) // PastelTheme.light
+        appearance.backgroundColor = UIColor(red: 0.773, green: 0.792, blue: 0.859, alpha: 1) // PastelTheme.light
         appearance.shadowColor = .clear
         appearance.titleTextAttributes = [.font: inlineTitleFont]
         appearance.largeTitleTextAttributes = [.font: largeTitleFont]

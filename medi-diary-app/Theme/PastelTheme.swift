@@ -1,11 +1,11 @@
 import SwiftUI
 
 enum PastelTheme {
-    static let primary = Color(red: 0.561, green: 0.659, blue: 0.847)       // #8FA8D8
-    static let light = Color(red: 0.804, green: 0.847, blue: 0.941)         // #CDD8F0
-    static let dark = Color(red: 0.357, green: 0.486, blue: 0.769)          // #5B7CC4
+    static let primary = Color(red: 0.420, green: 0.608, blue: 0.949)       // #6B9BF2
+    static let light = Color(red: 0.773, green: 0.792, blue: 0.859)         // #C5CADB
+    static let dark = Color(red: 0.231, green: 0.463, blue: 0.914)          // #3B76E9
     static let softWhite = Color(red: 0.953, green: 0.957, blue: 0.976)     // #F3F4F9
-    static let pinkAccent = Color(red: 0.961, green: 0.663, blue: 0.259)    // #F5A942
+    static let pinkAccent = Color(red: 0.992, green: 0.655, blue: 0.322)    // #FDA752
     static let green = Color(red: 0.596, green: 0.812, blue: 0.631)        // attended
     static let orange = Color(red: 0.949, green: 0.718, blue: 0.459)       // missed
     static let gray = Color(red: 0.784, green: 0.784, blue: 0.784)         // cancelled

@@ -205,6 +205,65 @@ struct MedicineFormView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
 
+                    // MARK: - Image
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let uiImage = cachedImage {
+                            ZStack(alignment: .topTrailing) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity, maxHeight: 200)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                Button {
+                                    imageData = nil
+                                    selectedPhoto = nil
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 28, height: 28)
+                                        .background(Color(white: 0.35))
+                                        .clipShape(Circle())
+                                }
+                                .offset(x: -4, y: 4)
+                            }
+                        }
+
+                        HStack(spacing: 12) {
+                            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                                HStack {
+                                    Image(systemName: "photo.on.rectangle")
+                                    Text("Choose Photo")
+                                }
+                                .font(.poppins(.medium, size: 14))
+                                .foregroundStyle(PastelTheme.dark)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                            }
+
+                            Button {
+                                showCamera = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "camera.fill")
+                                    Text("Take Photo")
+                                }
+                                .font(.poppins(.medium, size: 14))
+                                .foregroundStyle(PastelTheme.dark)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                            }
+                        }
+                    }
+
                     // MARK: - Reminder Times
                     Text("REMINDER TIMES")
                         .font(.poppins(.medium, size: 12))
@@ -274,65 +333,6 @@ struct MedicineFormView: View {
                         .background(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-
-                    // MARK: - Image
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let uiImage = cachedImage {
-                            ZStack(alignment: .topTrailing) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity, maxHeight: 200)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                                Button {
-                                    imageData = nil
-                                    selectedPhoto = nil
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .frame(width: 28, height: 28)
-                                        .background(Color(white: 0.35))
-                                        .clipShape(Circle())
-                                }
-                                .offset(x: -4, y: 4)
-                            }
-                        }
-
-                        HStack(spacing: 12) {
-                            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                                HStack {
-                                    Image(systemName: "photo.on.rectangle")
-                                    Text("Choose Photo")
-                                }
-                                .font(.poppins(.medium, size: 14))
-                                .foregroundStyle(PastelTheme.dark)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                            }
-
-                            Button {
-                                showCamera = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "camera.fill")
-                                    Text("Take Photo")
-                                }
-                                .font(.poppins(.medium, size: 14))
-                                .foregroundStyle(PastelTheme.dark)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                            }
-                        }
-                    }
                 }
                 .padding()
                 .padding(.bottom, 10)

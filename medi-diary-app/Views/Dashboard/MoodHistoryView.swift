@@ -106,6 +106,32 @@ struct MoodHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // MARK: - Header
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(PastelTheme.dark)
+                            .frame(width: 40, height: 40)
+                            .background(PastelTheme.light.opacity(0.6))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Text("Mood Tracker")
+                        .font(.poppins(.bold, size: 20))
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    Color.clear.frame(width: 40, height: 40)
+                }
+                .padding(.top, 8)
+
                 if last30DaysEntries.isEmpty {
                     emptyState
                 } else {
@@ -116,22 +142,12 @@ struct MoodHistoryView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 10)
         }
-        .navigationTitle("Mood Tracker")
-        .navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(PastelTheme.dark)
-                }
-            }
-        }
-        .pastelGradientBackground()
+        .background(PastelTheme.gradient.ignoresSafeArea())
     }
 
     // MARK: - This Week
