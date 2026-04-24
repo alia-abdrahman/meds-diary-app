@@ -3,45 +3,77 @@ import SwiftData
 
 struct TodayMedicineCard: View {
     let medicine: Medicine
+    var onMarkedTaken: (() -> Void)?
     @Environment(\.modelContext) private var modelContext
+    @Environment(NotificationManager.self) private var notificationManager
+    @State private var checkBounce = false
+    @State private var glowPulse = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Button {
-                medicine.toggleTakenToday()
+                let wasTaken = medicine.isTakenToday
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    medicine.toggleTakenToday()
+                    checkBounce = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    checkBounce = false
+                }
+                if !wasTaken { onMarkedTaken?() }
+                Task {
+                    let allMedicines = (try? modelContext.fetch(FetchDescriptor<Medicine>())) ?? []
+                    let allSupplements = (try? modelContext.fetch(FetchDescriptor<Supplement>())) ?? []
+                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                }
             } label: {
                 Image(systemName: medicine.isTakenToday ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
                     .foregroundStyle(medicine.isTakenToday ? PastelTheme.green : PastelTheme.pinkAccent)
+                    .scaleEffect(checkBounce ? 1.3 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: checkBounce)
+                    .background {
+                        if !medicine.isTakenToday {
+                            Circle()
+                                .fill(PastelTheme.pinkAccent)
+                                .frame(width: 22, height: 22)
+                                .scaleEffect(glowPulse ? 1.8 : 1.0)
+                                .opacity(glowPulse ? 0 : 0.35)
+                                .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: false), value: glowPulse)
+                        }
+                    }
+                    .frame(width: 28, height: 28)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            glowPulse = true
+                        }
+                    }
             }
             .buttonStyle(.plain)
 
             Text(medicine.name)
-                .font(.poppins(.semiBold, size: 17))
+                .font(.poppins(.semiBold, size: 16))
+                .strikethrough(medicine.isTakenToday, color: .secondary.opacity(0.4))
+                .foregroundStyle(medicine.isTakenToday ? .secondary : .primary)
+                .animation(.easeInOut(duration: 0.2), value: medicine.isTakenToday)
 
             Spacer()
 
-            if !medicine.dosage.isEmpty {
-                pill(medicine.displayDosage)
-            }
-            pill(medicine.frequency)
+            Text(medicine.frequency)
+                .font(.poppins(.regular, size: 12))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(PastelTheme.light.opacity(0.5))
+                .clipShape(Capsule())
 
-            if !medicine.reminderTimes.isEmpty {
-                Label("\(medicine.reminderTimes.count)", systemImage: "bell.fill")
-                    .font(.poppins(.regular, size: 12))
-                    .foregroundStyle(PastelTheme.dark)
-            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.tertiary)
         }
-        .cardStyle()
-    }
-
-    private func pill(_ text: String) -> some View {
-        Text(text)
-            .font(.poppins(.regular, size: 12))
-            .foregroundStyle(PastelTheme.dark)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(PastelTheme.light)
-            .clipShape(Capsule())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }

@@ -62,7 +62,7 @@ struct AppointmentRowView: View {
     private var statusColor: Color {
         switch appointment.status {
         case "attended": PastelTheme.green
-        case "missed": PastelTheme.orange
+        case "missed", "not attended": PastelTheme.orange
         case "cancelled": PastelTheme.gray
         default: PastelTheme.primary
         }

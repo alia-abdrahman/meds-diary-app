@@ -10,9 +10,16 @@ struct DashboardView: View {
 
     @Query(sort: \Supplement.name) private var allSupplements: [Supplement]
 
+    @Query(sort: \MoodEntry.date) private var moodEntries: [MoodEntry]
+
     @State private var showNewAppointment = false
     @State private var showNewMedicine = false
     @State private var showNewSupplement = false
+    @State private var showMoodCheckIn = false
+    @State private var showConfetti = false
+    @State private var confettiID = UUID()
+    @State private var lastSeenTakenCount = -1
+    @State private var hasCelebratedThisSession = false
 
     private var activeMedicines: [Medicine] {
         allMedicines.filter(\.isActive)
@@ -20,6 +27,53 @@ struct DashboardView: View {
 
     private var activeSupplements: [Supplement] {
         allSupplements.filter(\.isActive)
+    }
+
+    private var hasMoodToday: Bool {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return moodEntries.contains { calendar.startOfDay(for: $0.date) == today }
+    }
+
+    private var allTakenToday: Bool {
+        let medicines = activeMedicines
+        let supplements = activeSupplements
+        guard !medicines.isEmpty || !supplements.isEmpty else { return false }
+        return medicines.allSatisfy(\.isTakenToday) && supplements.allSatisfy(\.isTakenToday)
+    }
+
+    private var takenCount: Int {
+        activeMedicines.filter(\.isTakenToday).count + activeSupplements.filter(\.isTakenToday).count
+    }
+
+    private var totalActiveCount: Int {
+        activeMedicines.count + activeSupplements.count
+    }
+
+    private func checkAndCelebrate() {
+        let current = takenCount
+        let total = totalActiveCount
+        guard total > 0 else { return }
+
+        if current == total && !hasCelebratedThisSession {
+            hasCelebratedThisSession = true
+            confettiID = UUID()
+            showConfetti = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                showConfetti = false
+            }
+            if !hasMoodToday {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+                    showMoodCheckIn = true
+                }
+            }
+        }
+
+        if current < total {
+            hasCelebratedThisSession = false
+        }
+
+        lastSeenTakenCount = current
     }
 
     private var recentAppointments: [Appointment] {
@@ -31,85 +85,187 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    sectionHeader("Appointments", icon: "calendar")
-
-                    if recentAppointments.isEmpty {
-                        emptyCard(message: "Add your first appointment") {
-                            showNewAppointment = true
-                        }
-                    } else {
-                        recentAppointmentsTable
-                    }
-
-                    sectionHeader("Today's Medicines", icon: "pill.fill")
-
-                    if activeMedicines.isEmpty {
-                        emptyCard(message: "Add your first medicine") {
-                            showNewMedicine = true
-                        }
-                    } else {
-                        ForEach(activeMedicines) { medicine in
-                            NavigationLink {
-                                MedicineDetailView(medicine: medicine)
-                            } label: {
-                                TodayMedicineCard(medicine: medicine)
+        ZStack {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // MARK: - Header
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Meds Diary")
+                                    .font(.poppins(.bold, size: 28))
+                                    .foregroundStyle(.primary)
+                                Text("Your health, organized.")
+                                    .font(.poppins(.regular, size: 15))
+                                    .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.plain)
-                        }
-                    }
 
-                    sectionHeader("Today's Supplements", icon: "leaf.fill")
+                            Spacer()
 
-                    if activeSupplements.isEmpty {
-                        emptyCard(message: "Add your first supplement") {
-                            showNewSupplement = true
-                        }
-                    } else {
-                        ForEach(activeSupplements) { supplement in
                             NavigationLink {
-                                SupplementDetailView(supplement: supplement)
+                                MoodHistoryView()
                             } label: {
-                                TodaySupplementCard(supplement: supplement)
+                                Image(systemName: "face.smiling")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(PastelTheme.dark)
+                                    .frame(width: 46, height: 46)
+                                    .background(PastelTheme.light.opacity(0.6))
+                                    .clipShape(Circle())
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.top, 8)
+
+                        // MARK: - Upcoming Appointments
+                        sectionHeader("Upcoming Appointments", icon: "calendar", actionLabel: "View all", tab: .appointments)
+
+                        if recentAppointments.isEmpty {
+                            emptyCard(message: "Add your first appointment") {
+                                showNewAppointment = true
+                            }
+                        } else {
+                            VStack(spacing: 10) {
+                                ForEach(recentAppointments) { appointment in
+                                    NavigationLink {
+                                        AppointmentDetailView(appointment: appointment)
+                                    } label: {
+                                        AppointmentDashboardCard(appointment: appointment)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .pressable()
+                                }
+                            }
+                        }
+
+                        // MARK: - Today's Medicines
+                        sectionHeader("Today's Medicines", icon: "pill.fill", actionLabel: "Manage", tab: .medicines)
+
+                        if activeMedicines.isEmpty {
+                            emptyCard(message: "Add your first medicine") {
+                                showNewMedicine = true
+                            }
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(activeMedicines.enumerated()), id: \.element.id) { index, medicine in
+                                    NavigationLink {
+                                        MedicineDetailView(medicine: medicine)
+                                    } label: {
+                                        TodayMedicineCard(medicine: medicine)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .pressable()
+
+                                    if index < activeMedicines.count - 1 {
+                                        Divider()
+                                            .padding(.horizontal, 16)
+                                    }
+                                }
+                            }
+                            .background(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        }
+
+                        // MARK: - Today's Supplements
+                        sectionHeader("Today's Supplements", icon: "leaf.fill", actionLabel: "Manage", tab: .supplements)
+
+                        if activeSupplements.isEmpty {
+                            emptyCard(message: "Add your first supplement") {
+                                showNewSupplement = true
+                            }
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(activeSupplements.enumerated()), id: \.element.id) { index, supplement in
+                                    NavigationLink {
+                                        SupplementDetailView(supplement: supplement)
+                                    } label: {
+                                        TodaySupplementCard(supplement: supplement)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .pressable()
+
+                                    if index < activeSupplements.count - 1 {
+                                        Divider()
+                                            .padding(.horizontal, 16)
+                                    }
+                                }
+                            }
+                            .background(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        }
+
+                    }
+                    .padding()
+                }
+                .scrollContentBackground(.hidden)
+                .toolbar(.hidden, for: .navigationBar)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(PastelTheme.gradient.ignoresSafeArea())
+                .onAppear {
+                    if lastSeenTakenCount == -1 {
+                        lastSeenTakenCount = takenCount
+                        if allTakenToday { hasCelebratedThisSession = true }
                     }
                 }
-                .padding()
+                .onChange(of: takenCount) { _, _ in
+                    checkAndCelebrate()
+                }
+                .navigationDestination(isPresented: $showNewAppointment) {
+                    AppointmentFormView()
+                }
+                .navigationDestination(isPresented: $showNewMedicine) {
+                    MedicineFormView()
+                }
+                .navigationDestination(isPresented: $showNewSupplement) {
+                    SupplementFormView()
+                }
+                .sheet(isPresented: $showMoodCheckIn) {
+                    MoodCheckInView()
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                }
             }
-            .navigationTitle("Meds Diary")
-            .navigationBarTitleDisplayMode(.inline)
-.pastelGradientBackground()
-            .navigationDestination(isPresented: $showNewAppointment) {
-                AppointmentFormView()
-            }
-            .navigationDestination(isPresented: $showNewMedicine) {
-                MedicineFormView()
-            }
-            .navigationDestination(isPresented: $showNewSupplement) {
-                SupplementFormView()
+
+            if showConfetti {
+                SparkleOverlay()
+                    .id(confettiID)
+                    .allowsHitTesting(false)
+                    .ignoresSafeArea()
             }
         }
     }
 
-    private var recentAppointmentsTable: some View {
-        VStack(spacing: 10) {
-            ForEach(recentAppointments) { appointment in
-                AppointmentDashboardCard(appointment: appointment) {
-                    selectedTab = .appointments
+    // MARK: - Section Header
+
+    private func sectionHeader(_ title: String, icon: String, actionLabel: String, tab: AppTab) -> some View {
+        HStack {
+            Label(title, systemImage: icon)
+                .font(.poppins(.bold, size: 18))
+                .foregroundStyle(PastelTheme.dark)
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    selectedTab = tab
+                }
+            } label: {
+                HStack(spacing: 2) {
+                    Text(actionLabel)
+                        .font(.poppins(.medium, size: 13))
+                        .foregroundStyle(PastelTheme.dark)
+                    if actionLabel == "View all" {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(PastelTheme.dark)
+                    }
                 }
             }
+            .buttonStyle(.plain)
         }
     }
 
-    private func sectionHeader(_ title: String, icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.poppins(.bold, size: 20))
-            .foregroundStyle(PastelTheme.dark)
-    }
+    // MARK: - Empty Card
 
     private func emptyCard(message: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -135,66 +291,70 @@ struct DashboardView: View {
     }
 }
 
+// MARK: - Appointment Dashboard Card
+
 private struct AppointmentDashboardCard: View {
     let appointment: Appointment
-    var onTap: () -> Void
     @State private var isBouncing = false
-    @State private var isPressed = false
 
     var body: some View {
         HStack(spacing: 14) {
             Circle()
                 .fill(PastelTheme.light)
-                .frame(width: 42, height: 42)
+                .frame(width: 48, height: 48)
                 .overlay(
                     Image(systemName: disciplineIcon(for: appointment.discipline))
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(PastelTheme.dark)
                 )
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(appointment.discipline)
-                    .font(.poppins(.semiBold, size: 15))
+                    .font(.poppins(.semiBold, size: 16))
                     .foregroundStyle(.primary)
 
                 HStack(spacing: 4) {
-                    Text(appointment.date.formatted(.dateTime.day().month(.abbreviated)))
-                    Text("•")
-                    Text(appointment.time.formatted(date: .omitted, time: .shortened))
+                    Image(systemName: "calendar")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Text(appointment.date.formatted(.dateTime.day().month(.abbreviated).year()))
+                        .font(.poppins(.regular, size: 13))
+                        .foregroundStyle(.secondary)
                 }
-                .font(.poppins(.regular, size: 13))
-                .foregroundStyle(.secondary)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Text(appointment.time.formatted(date: .omitted, time: .shortened))
+                        .font(.poppins(.regular, size: 13))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
 
-            Text(dayCountdown(for: appointment.date))
-                .font(.poppins(.semiBold, size: 14))
-                .foregroundStyle(countdownColor)
-                .scaleEffect(isBouncing && isUpcoming ? 1.15 : 1.0)
-                .animation(
-                    isUpcoming ? .easeInOut(duration: 1.2).repeatForever(autoreverses: true) : .default,
-                    value: isBouncing
-                )
-                .onAppear { isBouncing = true }
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 11))
+                Text(dayCountdown(for: appointment.date))
+                    .font(.poppins(.semiBold, size: 13))
+            }
+            .foregroundStyle(countdownColor)
+            .scaleEffect(isBouncing && isUpcoming ? 1.1 : 1.0)
+            .onAppear {
+                guard isUpcoming else { return }
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    isBouncing = true
+                }
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         .contentShape(RoundedRectangle(cornerRadius: 12))
-        .scaleEffect(isPressed ? 0.96 : 1.0)
-        .opacity(isPressed ? 0.8 : 1.0)
-        .animation(.easeInOut(duration: 0.12), value: isPressed)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in
-                    isPressed = false
-                    onTap()
-                }
-        )
     }
 
     private var isUpcoming: Bool {
@@ -244,5 +404,7 @@ private struct AppointmentDashboardCard: View {
 
 #Preview {
     DashboardView(selectedTab: .constant(.home))
-        .modelContainer(for: [Appointment.self, Medicine.self, Supplement.self], inMemory: true)
+        .modelContainer(for: [Appointment.self, Medicine.self, Supplement.self, MoodEntry.self], inMemory: true)
+        .environment(NotificationManager())
+        .environment(SubscriptionManager())
 }

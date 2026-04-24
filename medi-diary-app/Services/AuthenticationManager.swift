@@ -2,7 +2,7 @@ import AuthenticationServices
 import Foundation
 
 @Observable
-final class AuthenticationManager {
+final class AuthenticationManager: NSObject {
     private(set) var isSignedIn = false
     private(set) var userName: String?
     private(set) var userEmail: String?
@@ -13,7 +13,10 @@ final class AuthenticationManager {
 
     private static let migrationDoneKey = "keychainMigrationDone"
 
-    init() {
+    private var emailRecoveryContinuation: CheckedContinuation<Void, Never>?
+
+    override init() {
+        super.init()
         migrateToKeychainIfNeeded()
 
         if let userID = KeychainHelper.load(key: Self.userIDKey) {
@@ -41,7 +44,8 @@ final class AuthenticationManager {
             }
         }
 
-        if let email = credential.email {
+        let email = credential.email ?? emailFromIdentityToken(credential.identityToken)
+        if let email {
             KeychainHelper.save(key: Self.userEmailKey, value: email)
             userEmail = email
         }
@@ -50,6 +54,15 @@ final class AuthenticationManager {
     }
 
     func signOut() {
+        KeychainHelper.delete(key: Self.userIDKey)
+        KeychainHelper.delete(key: Self.userNameKey)
+        // Keep email in Keychain — Apple only provides it on first sign-in
+        isSignedIn = false
+        userName = nil
+        userEmail = nil
+    }
+
+    func deleteAccountData() {
         KeychainHelper.delete(key: Self.userIDKey)
         KeychainHelper.delete(key: Self.userNameKey)
         KeychainHelper.delete(key: Self.userEmailKey)
@@ -66,6 +79,45 @@ final class AuthenticationManager {
                 }
             }
         }
+    }
+
+    /// Silently re-authenticates with Apple to recover email from identity token
+    func recoverEmailIfNeeded() async {
+        guard isSignedIn, userEmail == nil else { return }
+
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        // No scopes needed — just need the identity token
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+
+        await withCheckedContinuation { continuation in
+            emailRecoveryContinuation = continuation
+            controller.performRequests()
+        }
+    }
+
+    private func emailFromIdentityToken(_ tokenData: Data?) -> String? {
+        guard let data = tokenData,
+              let jwt = String(data: data, encoding: .utf8) else { return nil }
+
+        let segments = jwt.split(separator: ".")
+        guard segments.count == 3 else { return nil }
+
+        // Decode the payload (second segment)
+        var base64 = String(segments[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+
+        // Pad to multiple of 4
+        while base64.count % 4 != 0 { base64.append("=") }
+
+        guard let payloadData = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
+              let email = json["email"] as? String else { return nil }
+
+        return email
     }
 
     // MARK: - One-time migration from UserDefaults/iCloud KVS → Keychain
@@ -90,5 +142,26 @@ final class AuthenticationManager {
         }
 
         UserDefaults.standard.set(true, forKey: Self.migrationDoneKey)
+    }
+}
+
+// MARK: - ASAuthorizationControllerDelegate (email recovery)
+extension AuthenticationManager: ASAuthorizationControllerDelegate {
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+            let email = credential.email ?? emailFromIdentityToken(credential.identityToken)
+            if let email {
+                KeychainHelper.save(key: Self.userEmailKey, value: email)
+                userEmail = email
+            }
+        }
+        emailRecoveryContinuation?.resume()
+        emailRecoveryContinuation = nil
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        print("Email recovery failed: \(error)")
+        emailRecoveryContinuation?.resume()
+        emailRecoveryContinuation = nil
     }
 }
