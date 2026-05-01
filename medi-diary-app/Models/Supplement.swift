@@ -14,6 +14,7 @@ final class Supplement {
     @Attribute(.externalStorage) var imageData: Data?
     var takenDatesData: Data = Data()
     var createdAt: Date = Date()
+    var personId: UUID?
 
     @Transient var reminderTimes: [Date] {
         get { (try? JSONDecoder().decode([Date].self, from: reminderTimesData)) ?? [] }

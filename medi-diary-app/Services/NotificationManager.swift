@@ -31,7 +31,7 @@ final class NotificationManager {
         }
     }
 
-    func scheduleAllReminders(medicines: [Medicine], supplements: [Supplement]) async {
+    func scheduleAllReminders(medicines: [Medicine], supplements: [Supplement], people: [Person] = []) async {
         let center = UNUserNotificationCenter.current()
 
         // Remove all existing reminder notifications
@@ -41,15 +41,19 @@ final class NotificationManager {
         }
         center.removePendingNotificationRequests(withIdentifiers: existingIDs)
 
-        // Group all active & untaken items by reminder time (hour:minute)
-        // Items already taken today don't need reminders
-        var timeSlots: [String: [String]] = [:]
+        let nameByPersonId = Dictionary(uniqueKeysWithValues: people.map { ($0.id, $0.displayName) })
+        let multiplePeople = people.count > 1
+
+        // Group active & untaken items by (personId, time slot)
+        // nil personId is bucketed together as the "self" or untagged group.
+        struct SlotKey: Hashable { let personId: UUID?; let hour: Int; let minute: Int }
+        var timeSlots: [SlotKey: [String]] = [:]
         let calendar = Calendar.current
 
         for medicine in medicines where medicine.isActive && !medicine.isTakenToday {
             for time in medicine.reminderTimes {
                 let comps = calendar.dateComponents([.hour, .minute], from: time)
-                let key = String(format: "%02d-%02d", comps.hour ?? 0, comps.minute ?? 0)
+                let key = SlotKey(personId: medicine.personId, hour: comps.hour ?? 0, minute: comps.minute ?? 0)
                 timeSlots[key, default: []].append(medicine.name)
             }
         }
@@ -57,33 +61,42 @@ final class NotificationManager {
         for supplement in supplements where supplement.isActive && !supplement.isTakenToday {
             for time in supplement.reminderTimes {
                 let comps = calendar.dateComponents([.hour, .minute], from: time)
-                let key = String(format: "%02d-%02d", comps.hour ?? 0, comps.minute ?? 0)
+                let key = SlotKey(personId: supplement.personId, hour: comps.hour ?? 0, minute: comps.minute ?? 0)
                 timeSlots[key, default: []].append(supplement.name)
             }
         }
 
-        // Schedule one notification per time slot
         for (key, names) in timeSlots {
-            let parts = key.split(separator: "-")
-            guard parts.count == 2,
-                  let hour = Int(parts[0]),
-                  let minute = Int(parts[1]) else { continue }
-
             let content = UNMutableNotificationContent()
             content.title = "Medication Reminder"
-            if names.count == 1 {
-                content.body = reminderMessage(for: names[0])
+
+            let personName: String? = {
+                guard multiplePeople, let pid = key.personId else { return nil }
+                return nameByPersonId[pid]
+            }()
+
+            if let personName {
+                if names.count == 1 {
+                    content.body = "Time for \(personName): \(names[0])"
+                } else {
+                    content.body = "\(personName): \(names.joined(separator: ", "))"
+                }
             } else {
-                content.body = "Time to take: \(names.joined(separator: ", "))"
+                if names.count == 1 {
+                    content.body = reminderMessage(for: names[0])
+                } else {
+                    content.body = "Time to take: \(names.joined(separator: ", "))"
+                }
             }
             content.sound = .default
 
             var dateComponents = DateComponents()
-            dateComponents.hour = hour
-            dateComponents.minute = minute
+            dateComponents.hour = key.hour
+            dateComponents.minute = key.minute
             let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
 
-            let identifier = "reminder-\(key)"
+            let personSegment = key.personId?.uuidString ?? "shared"
+            let identifier = String(format: "reminder-%@-%02d-%02d", personSegment, key.hour, key.minute)
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
             do {
@@ -94,7 +107,7 @@ final class NotificationManager {
         }
     }
 
-    func scheduleAppointmentReminders(for appointment: Appointment) async {
+    func scheduleAppointmentReminders(for appointment: Appointment, personName: String? = nil) async {
         let center = UNUserNotificationCenter.current()
         let calendar = Calendar.current
 
@@ -102,6 +115,8 @@ final class NotificationManager {
         cancelAppointmentReminders(for: appointment)
 
         guard appointment.status == "upcoming" else { return }
+
+        let prefix = personName.map { "\($0)'s " } ?? ""
 
         // Combine date and time into a single Date
         let timeComps = calendar.dateComponents([.hour, .minute], from: appointment.time)
@@ -127,7 +142,7 @@ final class NotificationManager {
             if let triggerDate = calendar.date(from: dayBeforeComps), triggerDate > Date() {
                 let content = UNMutableNotificationContent()
                 content.title = "Appointment Tomorrow"
-                content.body = "Your \(appointment.discipline) checkup is tomorrow at \(timeString) — you've got this!"
+                content.body = "\(prefix)\(appointment.discipline) checkup is tomorrow at \(timeString) — you've got this!"
                 content.sound = .default
 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: dayBeforeComps, repeats: false)
@@ -154,7 +169,7 @@ final class NotificationManager {
             if let triggerDate = calendar.date(from: nightBeforeComps), triggerDate > Date() {
                 let content = UNMutableNotificationContent()
                 content.title = "Appointment Tomorrow"
-                content.body = "A gentle reminder — your \(appointment.discipline) appointment is tomorrow at \(timeString). Rest well tonight!"
+                content.body = "A gentle reminder — \(prefix)\(appointment.discipline) appointment is tomorrow at \(timeString). Rest well tonight!"
                 content.sound = .default
 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: nightBeforeComps, repeats: false)
@@ -177,7 +192,7 @@ final class NotificationManager {
             if twoHoursBefore > Date() {
                 let content = UNMutableNotificationContent()
                 content.title = "Almost Time"
-                content.body = "Your \(appointment.discipline) appointment is at \(timeString) — you're all set!"
+                content.body = "\(prefix)\(appointment.discipline) appointment is at \(timeString) — you're all set!"
                 content.sound = .default
 
                 let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: twoHoursBefore)

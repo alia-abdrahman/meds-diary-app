@@ -2,18 +2,29 @@ import SwiftUI
 import SwiftData
 
 struct MedicinesListView: View {
-    @Query(sort: \Medicine.name) private var medicines: [Medicine]
+    @Query(sort: \Medicine.name) private var medicinesRaw: [Medicine]
     @Environment(\.modelContext) private var modelContext
     @Environment(NotificationManager.self) private var notificationManager
     @Environment(SubscriptionManager.self) private var subscriptionManager
+    @Environment(PersonContext.self) private var personContext
 
-    @Query(sort: \Supplement.name) private var allSupplements: [Supplement]
+    @Query(sort: \Supplement.name) private var allSupplementsRaw: [Supplement]
 
     @State private var showPaywall = false
     @State private var showAddForm = false
     @State private var showMilestone = false
     @State private var milestoneValue = 0
     @State private var showAllMedicines = false
+
+    private var medicines: [Medicine] {
+        guard let id = personContext.activePersonID else { return medicinesRaw }
+        return medicinesRaw.filter { $0.personId == id }
+    }
+
+    private var allSupplements: [Supplement] {
+        guard let id = personContext.activePersonID else { return allSupplementsRaw }
+        return allSupplementsRaw.filter { $0.personId == id }
+    }
 
     private var activeMedicines: [Medicine] { medicines.filter(\.isActive) }
     private var pastMedicines: [Medicine] { medicines.filter { !$0.isActive } }
@@ -338,7 +349,8 @@ private struct AllMedicinesView: View {
 
 #Preview {
     MedicinesListView()
-        .modelContainer(for: Medicine.self, inMemory: true)
+        .modelContainer(for: [Medicine.self, Supplement.self, Person.self], inMemory: true)
         .environment(NotificationManager())
         .environment(SubscriptionManager())
+        .environment(PersonContext())
 }

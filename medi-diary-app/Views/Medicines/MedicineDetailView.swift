@@ -146,7 +146,8 @@ struct MedicineDetailView: View {
                     }
                     if !wasTaken { checkMoodPrompt() }
                     Task {
-                        await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                        let allPeople = (try? modelContext.fetch(FetchDescriptor<Person>())) ?? []
+                        await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements, people: allPeople)
                     }
                 } label: {
                     HStack(spacing: 10) {
@@ -250,7 +251,8 @@ struct MedicineDetailView: View {
                 Task {
                     let allMedicines = (try? modelContext.fetch(FetchDescriptor<Medicine>())) ?? []
                     let allSupplements = (try? modelContext.fetch(FetchDescriptor<Supplement>())) ?? []
-                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                    let allPeople = (try? modelContext.fetch(FetchDescriptor<Person>())) ?? []
+                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements, people: allPeople)
                 }
                 dismiss()
             }

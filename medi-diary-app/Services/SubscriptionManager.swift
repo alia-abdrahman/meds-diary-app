@@ -8,6 +8,7 @@ final class SubscriptionManager {
     }
 
     static let freeItemLimit = 5
+    static let freeRecipientLimit = 1
     private static let isPremiumCacheKey = "cachedIsPremium"
 
     static var cachedIsPremium: Bool {
@@ -41,6 +42,10 @@ final class SubscriptionManager {
 
     func canAddItem(currentCount: Int) -> Bool {
         tier == .premium || currentCount < Self.freeItemLimit
+    }
+
+    func canAddRecipient(currentRecipientCount: Int) -> Bool {
+        tier == .premium || currentRecipientCount < Self.freeRecipientLimit
     }
 
     func acknowledgeCloudKitChange() {

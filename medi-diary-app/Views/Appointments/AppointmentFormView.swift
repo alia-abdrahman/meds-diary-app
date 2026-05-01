@@ -5,6 +5,7 @@ struct AppointmentFormView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(NotificationManager.self) private var notificationManager
+    @Environment(PersonContext.self) private var personContext
 
     let appointment: Appointment?
 
@@ -321,12 +322,22 @@ struct AppointmentFormView: View {
                 doctorName: doctorName,
                 status: status
             )
+            savedAppointment.personId = personContext.activePersonID
             modelContext.insert(savedAppointment)
         }
 
+        let personName: String? = {
+            guard let id = savedAppointment.personId,
+                  let person = (try? modelContext.fetch(FetchDescriptor<Person>()))?.first(where: { $0.id == id }) else {
+                return nil
+            }
+            let allPeople = (try? modelContext.fetch(FetchDescriptor<Person>())) ?? []
+            return allPeople.count > 1 ? person.displayName : nil
+        }()
+
         Task {
             await notificationManager.requestAuthorization()
-            await notificationManager.scheduleAppointmentReminders(for: savedAppointment)
+            await notificationManager.scheduleAppointmentReminders(for: savedAppointment, personName: personName)
         }
 
         dismiss()
@@ -337,6 +348,7 @@ struct AppointmentFormView: View {
     NavigationStack {
         AppointmentFormView()
     }
-    .modelContainer(for: Appointment.self, inMemory: true)
+    .modelContainer(for: [Appointment.self, Person.self], inMemory: true)
     .environment(NotificationManager())
+    .environment(PersonContext())
 }

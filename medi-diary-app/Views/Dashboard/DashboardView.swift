@@ -4,13 +4,25 @@ import SwiftData
 struct DashboardView: View {
     @Binding var selectedTab: AppTab
 
-    @Query(sort: \Appointment.date) private var allAppointments: [Appointment]
+    @Query(sort: \Appointment.date) private var allAppointmentsRaw: [Appointment]
 
-    @Query(sort: \Medicine.name) private var allMedicines: [Medicine]
+    @Query(sort: \Medicine.name) private var allMedicinesRaw: [Medicine]
 
-    @Query(sort: \Supplement.name) private var allSupplements: [Supplement]
+    @Query(sort: \Supplement.name) private var allSupplementsRaw: [Supplement]
 
-    @Query(sort: \MoodEntry.date) private var moodEntries: [MoodEntry]
+    @Query(sort: \MoodEntry.date) private var moodEntriesRaw: [MoodEntry]
+
+    @Query private var allPeopleRaw: [Person]
+
+    private var allPeople: [Person] {
+        allPeopleRaw.sorted { lhs, rhs in
+            if lhs.isSelf != rhs.isSelf { return lhs.isSelf }
+            if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+            return lhs.createdAt < rhs.createdAt
+        }
+    }
+
+    @Environment(PersonContext.self) private var personContext
 
     @State private var showNewAppointment = false
     @State private var showNewMedicine = false
@@ -20,6 +32,35 @@ struct DashboardView: View {
     @State private var confettiID = UUID()
     @State private var lastSeenTakenCount = -1
     @State private var hasCelebratedThisSession = false
+    @State private var showManagePeople = false
+    @State private var showPersonSwitcher = false
+
+    private var activePerson: Person? {
+        guard let id = personContext.activePersonID else { return allPeople.first(where: \.isSelf) ?? allPeople.first }
+        return allPeople.first(where: { $0.id == id }) ?? allPeople.first(where: \.isSelf) ?? allPeople.first
+    }
+
+    private var activeID: UUID? { activePerson?.id }
+
+    private var allAppointments: [Appointment] {
+        guard let id = activeID else { return allAppointmentsRaw }
+        return allAppointmentsRaw.filter { $0.personId == id }
+    }
+
+    private var allMedicines: [Medicine] {
+        guard let id = activeID else { return allMedicinesRaw }
+        return allMedicinesRaw.filter { $0.personId == id }
+    }
+
+    private var allSupplements: [Supplement] {
+        guard let id = activeID else { return allSupplementsRaw }
+        return allSupplementsRaw.filter { $0.personId == id }
+    }
+
+    private var moodEntries: [MoodEntry] {
+        guard let id = activeID else { return moodEntriesRaw }
+        return moodEntriesRaw.filter { $0.personId == id }
+    }
 
     private var activeMedicines: [Medicine] {
         allMedicines.filter(\.isActive)
@@ -90,20 +131,13 @@ struct DashboardView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         // MARK: - Header
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Meds Diary")
-                                    .font(.poppins(.bold, size: 28))
-                                    .foregroundStyle(.primary)
-                                Text("Your health, organized.")
-                                    .font(.poppins(.regular, size: 15))
-                                    .foregroundStyle(.secondary)
-                            }
+                        HStack(alignment: .center) {
+                            personSwitcherMenu
 
                             Spacer()
 
                             NavigationLink {
-                                MoodHistoryView()
+                                MoodHistoryView(personId: activeID)
                             } label: {
                                 Image(systemName: "face.smiling")
                                     .font(.system(size: 22))
@@ -219,10 +253,23 @@ struct DashboardView: View {
                 .navigationDestination(isPresented: $showNewSupplement) {
                     SupplementFormView()
                 }
+                .navigationDestination(isPresented: $showManagePeople) {
+                    ManagePeopleView()
+                }
                 .sheet(isPresented: $showMoodCheckIn) {
                     MoodCheckInView()
                         .presentationDetents([.medium])
                         .presentationDragIndicator(.visible)
+                }
+                .sheet(isPresented: $showPersonSwitcher) {
+                    PersonSwitcherSheet(onManageTapped: {
+                        showPersonSwitcher = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showManagePeople = true
+                        }
+                    })
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
             }
 
@@ -233,6 +280,42 @@ struct DashboardView: View {
                     .ignoresSafeArea()
             }
         }
+    }
+
+    // MARK: - Person Switcher
+
+    private var personSwitcherMenu: some View {
+        Button {
+            showPersonSwitcher = true
+        } label: {
+            HStack(spacing: 10) {
+                Text(activePerson?.avatarEmoji ?? "🙂")
+                    .font(.system(size: 28))
+                    .frame(width: 44, height: 44)
+                    .background(PastelTheme.light.opacity(0.6))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(activePerson?.displayName ?? "Me")
+                        .font(.poppins(.bold, size: 20))
+                        .foregroundStyle(.primary)
+                    Text(headerSubtitle)
+                        .font(.poppins(.regular, size: 13))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var headerSubtitle: String {
+        if allPeople.count > 1 {
+            return "Tap to switch"
+        }
+        if let person = activePerson, !person.isSelf {
+            return person.relation.isEmpty ? "Care recipient" : person.relation
+        }
+        return "Your health, organized."
     }
 
     // MARK: - Section Header
@@ -404,7 +487,8 @@ private struct AppointmentDashboardCard: View {
 
 #Preview {
     DashboardView(selectedTab: .constant(.home))
-        .modelContainer(for: [Appointment.self, Medicine.self, Supplement.self, MoodEntry.self], inMemory: true)
+        .modelContainer(for: [Appointment.self, Medicine.self, Supplement.self, MoodEntry.self, Person.self], inMemory: true)
         .environment(NotificationManager())
         .environment(SubscriptionManager())
+        .environment(PersonContext())
 }

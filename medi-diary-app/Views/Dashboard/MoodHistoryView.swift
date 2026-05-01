@@ -2,10 +2,27 @@ import SwiftUI
 import SwiftData
 
 struct MoodHistoryView: View {
+    let personId: UUID?
+
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \MoodEntry.date, order: .reverse) private var allMoodEntries: [MoodEntry]
-    @Query(sort: \Medicine.name) private var allMedicines: [Medicine]
-    @Query(sort: \Supplement.name) private var allSupplements: [Supplement]
+    @Query(sort: \MoodEntry.date, order: .reverse) private var allMoodEntriesRaw: [MoodEntry]
+    @Query(sort: \Medicine.name) private var allMedicinesRaw: [Medicine]
+    @Query(sort: \Supplement.name) private var allSupplementsRaw: [Supplement]
+
+    private var allMoodEntries: [MoodEntry] {
+        guard let id = personId else { return allMoodEntriesRaw }
+        return allMoodEntriesRaw.filter { $0.personId == id }
+    }
+
+    private var allMedicines: [Medicine] {
+        guard let id = personId else { return allMedicinesRaw }
+        return allMedicinesRaw.filter { $0.personId == id }
+    }
+
+    private var allSupplements: [Supplement] {
+        guard let id = personId else { return allSupplementsRaw }
+        return allSupplementsRaw.filter { $0.personId == id }
+    }
 
     private var last7Days: [(date: Date, mood: MoodEntry?)] {
         let calendar = Calendar.current
@@ -421,7 +438,7 @@ private struct MoodLineGraph: View {
 
 #Preview {
     NavigationStack {
-        MoodHistoryView()
+        MoodHistoryView(personId: nil)
     }
     .modelContainer(for: [MoodEntry.self, Medicine.self, Supplement.self], inMemory: true)
 }

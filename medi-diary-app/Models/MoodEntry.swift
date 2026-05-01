@@ -7,6 +7,7 @@ final class MoodEntry {
     var date: Date = Date()
     var mood: Int = 3
     var createdAt: Date = Date()
+    var personId: UUID?
 
     init(date: Date, mood: Int) {
         self.id = UUID()

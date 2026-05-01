@@ -12,6 +12,7 @@ final class Appointment {
     var doctorName: String = ""
     var status: String = "upcoming"
     var createdAt: Date = Date()
+    var personId: UUID?
 
     init(date: Date, time: Date, discipline: String, notes: String = "", hospitalName: String = "Hospital Shah Alam", doctorName: String = "", status: String = "upcoming") {
         self.id = UUID()

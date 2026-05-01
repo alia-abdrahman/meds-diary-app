@@ -4,6 +4,7 @@ import SwiftData
 struct MoodCheckInView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(PersonContext.self) private var personContext
 
     @State private var selectedMood: Int?
     @State private var showContent = false
@@ -50,6 +51,7 @@ struct MoodCheckInView: View {
 
     private func saveMood(_ value: Int) {
         let entry = MoodEntry(date: Date(), mood: value)
+        entry.personId = personContext.activePersonID
         modelContext.insert(entry)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
@@ -63,5 +65,6 @@ struct MoodCheckInView: View {
         PastelTheme.gradient.ignoresSafeArea()
         MoodCheckInView()
     }
-    .modelContainer(for: MoodEntry.self, inMemory: true)
+    .modelContainer(for: [MoodEntry.self, Person.self], inMemory: true)
+    .environment(PersonContext())
 }

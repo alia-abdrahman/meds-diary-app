@@ -24,7 +24,8 @@ struct TodayMedicineCard: View {
                 Task {
                     let allMedicines = (try? modelContext.fetch(FetchDescriptor<Medicine>())) ?? []
                     let allSupplements = (try? modelContext.fetch(FetchDescriptor<Supplement>())) ?? []
-                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+                    let allPeople = (try? modelContext.fetch(FetchDescriptor<Person>())) ?? []
+                    await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements, people: allPeople)
                 }
             } label: {
                 Image(systemName: medicine.isTakenToday ? "checkmark.circle.fill" : "circle")

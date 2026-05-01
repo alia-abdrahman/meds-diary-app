@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct AppointmentsListView: View {
-    @Query(sort: \Appointment.date) private var appointments: [Appointment]
+    @Query(sort: \Appointment.date) private var appointmentsRaw: [Appointment]
     @Environment(\.modelContext) private var modelContext
     @Environment(SubscriptionManager.self) private var subscriptionManager
+    @Environment(PersonContext.self) private var personContext
 
     @State private var showPaywall = false
     @State private var showAddForm = false
@@ -12,6 +13,11 @@ struct AppointmentsListView: View {
     @State private var displayedMonth = Date()
     @State private var selectedDate: Date?
     @State private var showAllAppointments = false
+
+    private var appointments: [Appointment] {
+        guard let id = personContext.activePersonID else { return appointmentsRaw }
+        return appointmentsRaw.filter { $0.personId == id }
+    }
 
     private var appointmentDateComponents: Set<DateComponents> {
         let calendar = Calendar.current
@@ -267,6 +273,7 @@ struct AppointmentsListView: View {
 
 #Preview {
     AppointmentsListView()
-        .modelContainer(for: Appointment.self, inMemory: true)
+        .modelContainer(for: [Appointment.self, Person.self], inMemory: true)
         .environment(SubscriptionManager())
+        .environment(PersonContext())
 }

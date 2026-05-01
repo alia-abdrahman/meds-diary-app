@@ -6,6 +6,7 @@ struct SupplementFormView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(NotificationManager.self) private var notificationManager
+    @Environment(PersonContext.self) private var personContext
 
     let supplement: Supplement?
 
@@ -438,6 +439,7 @@ struct SupplementFormView: View {
                 stock: Int(stock) ?? 0
             )
             savedSupplement.imageData = imageData
+            savedSupplement.personId = personContext.activePersonID
             modelContext.insert(savedSupplement)
         }
 
@@ -445,7 +447,8 @@ struct SupplementFormView: View {
             await notificationManager.requestAuthorization()
             let allMedicines = (try? modelContext.fetch(FetchDescriptor<Medicine>())) ?? []
             let allSupplements = (try? modelContext.fetch(FetchDescriptor<Supplement>())) ?? []
-            await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements)
+            let allPeople = (try? modelContext.fetch(FetchDescriptor<Person>())) ?? []
+            await notificationManager.scheduleAllReminders(medicines: allMedicines, supplements: allSupplements, people: allPeople)
         }
 
         dismiss()
@@ -488,6 +491,7 @@ private struct SupplementCameraPicker: UIViewControllerRepresentable {
     NavigationStack {
         SupplementFormView()
     }
-    .modelContainer(for: Supplement.self, inMemory: true)
+    .modelContainer(for: [Supplement.self, Medicine.self, Person.self], inMemory: true)
     .environment(NotificationManager())
+    .environment(PersonContext())
 }

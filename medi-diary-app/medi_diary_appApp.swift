@@ -7,6 +7,7 @@ struct medi_diary_appApp: App {
     @State private var notificationManager = NotificationManager()
     @State private var authManager = AuthenticationManager()
     @State private var subscriptionManager = SubscriptionManager()
+    @State private var personContext = PersonContext()
 
     init() {
         let largeTitleFont = UIFont(name: "Poppins-Bold", size: 34) ?? .systemFont(ofSize: 34, weight: .bold)
@@ -26,7 +27,7 @@ struct medi_diary_appApp: App {
     }
 
     let container: ModelContainer = {
-        let schema = Schema([Appointment.self, Medicine.self, Supplement.self, MoodEntry.self])
+        let schema = Schema([Appointment.self, Medicine.self, Supplement.self, MoodEntry.self, Person.self])
         let isPremium = SubscriptionManager.cachedIsPremium
         let config = ModelConfiguration(
             schema: schema,
@@ -45,6 +46,8 @@ struct medi_diary_appApp: App {
         WindowGroup {
             if !hasSeenOnboarding {
                 OnboardingView()
+                    .environment(personContext)
+                    .environment(subscriptionManager)
             } else if !authManager.isSignedIn {
                 SignInView()
                     .environment(authManager)
@@ -53,16 +56,31 @@ struct medi_diary_appApp: App {
                     .environment(notificationManager)
                     .environment(authManager)
                     .environment(subscriptionManager)
+                    .environment(personContext)
                     .task {
                         await authManager.recoverEmailIfNeeded()
                         await notificationManager.requestAuthorization()
                         await subscriptionManager.checkEntitlements()
 
-                        // Rebuild all consolidated notifications on launch
                         let context = container.mainContext
+                        let selfPerson = PersonBootstrap.ensureSelfAndBackfill(
+                            context: context,
+                            defaultName: authManager.userName
+                        )
+                        if personContext.activePersonID == nil {
+                            personContext.activePersonID = selfPerson.id
+                        } else {
+                            let people = (try? context.fetch(FetchDescriptor<Person>())) ?? []
+                            if !people.contains(where: { $0.id == personContext.activePersonID }) {
+                                personContext.activePersonID = selfPerson.id
+                            }
+                        }
+
+                        // Rebuild all consolidated notifications on launch
                         let medicines = (try? context.fetch(FetchDescriptor<Medicine>())) ?? []
                         let supplements = (try? context.fetch(FetchDescriptor<Supplement>())) ?? []
-                        await notificationManager.scheduleAllReminders(medicines: medicines, supplements: supplements)
+                        let people = (try? context.fetch(FetchDescriptor<Person>())) ?? []
+                        await notificationManager.scheduleAllReminders(medicines: medicines, supplements: supplements, people: people)
                     }
             }
         }

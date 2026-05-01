@@ -19,11 +19,14 @@ struct SettingsView: View {
             try modelContext.delete(model: Medicine.self)
             try modelContext.delete(model: Supplement.self)
             try modelContext.delete(model: Appointment.self)
+            try modelContext.delete(model: MoodEntry.self)
+            try modelContext.delete(model: Person.self)
             try modelContext.save()
         } catch {
             print("Failed to delete data: \(error)")
         }
 
+        UserDefaults.standard.removeObject(forKey: "activePersonID")
         authManager.deleteAccountData()
     }
 
@@ -115,6 +118,39 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                // MARK: - People
+                sectionLabel("PEOPLE")
+
+                NavigationLink {
+                    ManagePeopleView()
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(PastelTheme.dark)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Care Recipients")
+                                .font(.poppins(.semiBold, size: 15))
+                                .foregroundStyle(.primary)
+                            Text("Manage yourself and loved ones")
+                                .font(.poppins(.regular, size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding()
+                    .background(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                }
+                .buttonStyle(.plain)
 
                 // MARK: - Data
                 sectionLabel("DATA")

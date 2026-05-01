@@ -41,6 +41,8 @@ struct PaywallView: View {
                         Divider().padding(.horizontal, 16)
                         featureRow(icon: "leaf.fill", title: "Unlimited supplements")
                         Divider().padding(.horizontal, 16)
+                        featureRow(icon: "person.2.fill", title: "Unlimited care recipients")
+                        Divider().padding(.horizontal, 16)
                         featureRow(icon: "icloud.fill", title: "iCloud sync across all devices")
                     }
                     .padding(.top, 24)
